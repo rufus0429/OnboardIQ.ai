@@ -4,6 +4,8 @@ const { tools, toolDeclarations } = require('./tools');
 const { env } = require('../config/env');
 const { DiagnosisResultSchema, NudgeSchema } = require('../validation/aiSchemas');
 const { logger } = require('../app');
+const { getUserJourney } = require('../repo/endUsers');
+const { getLatestDiagnosis } = require('../repo/diagnoses');
 
 async function runAgentAnalysis(ctx) {
   let iteration = 0;
@@ -34,21 +36,8 @@ async function runAgentAnalysis(ctx) {
           config: reqConfig
         });
       } catch (error) {
-        console.warn('Gemini error, using mock Diagnosis:', error);
-        const mockDiagnosis = {
-          step: "connect_data_source",
-          stallCause: "technical_friction",
-          hypothesis: "Rate limit mock hypothesis",
-          evidence: [
-            { fact: "Fact 1", value: "Value 1", source: "mock" },
-            { fact: "Fact 2", value: "Value 2", source: "mock" },
-            { fact: "Fact 3", value: "Value 3", source: "mock" }
-          ],
-          proposedFix: "Wait for quota",
-          confidence: "high",
-          affectedUserCount: 1
-        };
-        response = { candidates: [{ content: { parts: [{ text: JSON.stringify(mockDiagnosis) }] } }] };
+        logger.error('Gemini error during diagnosis: ' + error.message);
+        throw Object.assign(new Error('AI analysis is temporarily unavailable.'), { code: 'AI_UNAVAILABLE', retryable: true });
       }
 
       const message = response.candidates[0].content;
@@ -136,11 +125,40 @@ async function runAgentAnalysis(ctx) {
 }
 
 async function generateIntervention(ownerUid, workspaceId, endUserId, currentStep) {
-  // Use Gemini to generate a personalized email for the stalled user.
+  // Fetch real user data and diagnosis context
+  const journey = await getUserJourney(ownerUid, workspaceId, endUserId);
+  const diagnosis = await getLatestDiagnosis(ownerUid, workspaceId);
+
+  const userData = journey ? journey.user : { id: endUserId };
+  const userEvents = journey ? journey.events : [];
+  
   const prompt = `You are OnboardIQ's autonomous recovery agent.
-Generate a personalized email for user ${endUserId} who is stuck at step ${currentStep}.
-Output ONLY a JSON object with exactly these keys: subject (string), body (string), tone ("friendly"|"concise"|"helpful_expert").
-Do not use manipulation, guilt, or fake urgency. Be helpful.
+Generate a personalized email for a user who is stuck.
+
+Context:
+User First Name: ${userData.traits?.firstName || 'User'}
+User Plan: ${userData.traits?.plan || 'Unknown'}
+Company Size: ${userData.traits?.companySize || 'Unknown'}
+Signup Source: ${userData.traits?.source || 'Unknown'}
+Stalled Step: ${currentStep}
+Last Activity: ${userEvents.length > 0 ? new Date(userEvents[userEvents.length-1].tsMs).toISOString() : 'Unknown'}
+
+Recent Events:
+${userEvents.slice(-5).map(e => `- ${e.step} at ${new Date(e.tsMs).toISOString()}`).join('\n')}
+
+System Diagnosis for this drop-off:
+Root Cause: ${diagnosis?.stallCause || 'Unknown'}
+Hypothesis: ${diagnosis?.hypothesis || 'Unknown'}
+Evidence: ${JSON.stringify(diagnosis?.evidence || [])}
+
+Requirements:
+- <120 words
+- Use the user's first name
+- Reference the stalled step naturally
+- Provide EXACTLY ONE clear Call-To-Action (CTA)
+- No guilt, manipulation, or fake urgency
+- No fabricated facts
+- Output ONLY a JSON object with keys: subject (string), body (string), tone ("friendly"|"concise"|"helpful_expert").
 `;
   
   const reqConfig = {
@@ -157,13 +175,8 @@ Do not use manipulation, guilt, or fake urgency. Be helpful.
       config: reqConfig
     });
   } catch (error) {
-    console.warn('Gemini error, using mock Nudge:', error);
-    const mockNudge = {
-      subject: "We noticed you're stuck",
-      body: "Can we help you with the onboarding?",
-      tone: "friendly"
-    };
-    response = { candidates: [{ content: { parts: [{ text: JSON.stringify(mockNudge) }] } }] };
+    logger.error('Gemini error during nudge generation: ' + error.message);
+    throw Object.assign(new Error('AI nudge generation is temporarily unavailable.'), { code: 'AI_UNAVAILABLE', retryable: true });
   }
   
   const textPart = response.candidates?.[0]?.content?.parts?.find(p => p.text);

@@ -30,7 +30,7 @@ async function sendInterventionEmail(intervention) {
   // 2. Resend Mode
   try {
     // Recipient safety check
-    let toEmail = intervention.endUserId; // Fallback to simulated ID (assuming it's an email)
+    let toEmail = intervention.userEmail || `${intervention.endUserId}@example.com`;
     let recipientMode = 'direct';
 
     if (env.RESEND_TEST_TO) {

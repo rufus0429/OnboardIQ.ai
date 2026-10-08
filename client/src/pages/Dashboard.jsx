@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { ArrowDownRight, ArrowUpRight, Users, UserMinus, Activity } from 'lucide-react';
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { LoadingState } from '../components/ui/Loader';
 
 export default function Dashboard() {
@@ -77,31 +78,31 @@ export default function Dashboard() {
         <div className="px-6 py-5 border-b border-slate-200">
           <h3 className="text-lg font-medium text-slate-900">Funnel Conversion</h3>
         </div>
-        <div className="p-6">
-          <div className="space-y-4">
-            {data.steps?.map((step, index) => {
-              const prevCount = index === 0 ? data.totalUsers : data.steps[index-1].usersReached;
-              const dropRate = prevCount > 0 ? ((prevCount - step.usersReached) / prevCount * 100).toFixed(1) : 0;
-              const width = Math.max(5, (step.usersReached / data.totalUsers) * 100);
-              
-              return (
-                <div key={step.step}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium text-slate-700">{step.step.replace(/_/g, ' ')}</span>
-                    <span className="text-slate-500 tabular-nums">{step.usersReached} users</span>
-                  </div>
-                  <div className="w-full bg-slate-100 rounded-full h-2.5 flex items-center">
-                    <div className="bg-indigo-600 h-2.5 rounded-full" style={{ width: `${width}%` }}></div>
-                  </div>
-                  {index > 0 && (
-                    <div className="text-xs text-red-500 mt-1 tabular-nums">
-                      {dropRate}% drop-off from previous step
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+        <div className="p-6 h-[400px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart
+              data={data.steps.map(s => ({
+                name: s.step.replace(/_/g, ' '),
+                Users: s.usersReached
+              }))}
+              margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+            >
+              <defs>
+                <linearGradient id="colorUsers" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#4f46e5" stopOpacity={0.3}/>
+                  <stop offset="95%" stopColor="#4f46e5" stopOpacity={0}/>
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} dy={10} />
+              <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 12}} />
+              <Tooltip 
+                contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                itemStyle={{ color: '#0f172a', fontWeight: 600 }}
+              />
+              <Area type="monotone" dataKey="Users" stroke="#4f46e5" strokeWidth={3} fillOpacity={1} fill="url(#colorUsers)" />
+            </AreaChart>
+          </ResponsiveContainer>
         </div>
       </div>
     </div>

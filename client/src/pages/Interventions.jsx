@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
 import { Send, Check, X, Edit, Layers } from 'lucide-react';
+import { useToast } from '../contexts/ToastContext';
 import { LoadingState } from '../components/ui/Loader';
 
 export default function Interventions() {
   const { workspaceId } = useWorkspace();
+  const { addToast } = useToast();
   const [interventions, setInterventions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -33,8 +35,9 @@ export default function Interventions() {
     try {
       await api.post(`/workspaces/${workspaceId}/interventions/${id}/approve`, {});
       fetchInterventions();
+      addToast('Approved', 'success');
     } catch (err) {
-      alert('Error approving: ' + err.message);
+      addToast('Error approving: ' + err.message);
     }
   };
 
@@ -42,19 +45,21 @@ export default function Interventions() {
     try {
       await api.post(`/workspaces/${workspaceId}/interventions/${id}/reject`, {});
       fetchInterventions();
+      addToast('Rejected', 'success');
     } catch (err) {
-      alert('Error rejecting: ' + err.message);
+      addToast('Error rejecting: ' + err.message);
     }
   };
 
   const handleBulkApprove = async () => {
     if (selectedIds.size === 0) return;
     try {
-      await api.post(`/workspaces/${workspaceId}/interventions/bulk-approve`, { ids: Array.from(selectedIds) });
+      const res = await api.post(`/workspaces/${workspaceId}/interventions/bulk-approve`, { ids: Array.from(selectedIds) });
       setSelectedIds(new Set());
       fetchInterventions();
+      addToast(`Bulk approved ${res.sent || res.approved} interventions.`, 'success');
     } catch (err) {
-      alert('Error bulk approving: ' + err.message);
+      addToast('Error bulk approving: ' + err.message);
     }
   };
 
@@ -75,8 +80,9 @@ export default function Interventions() {
       await api.patch(`/workspaces/${workspaceId}/interventions/${editingId}`, editForm);
       setEditingId(null);
       fetchInterventions();
+      addToast('Saved', 'success');
     } catch (err) {
-      alert('Error saving: ' + err.message);
+      addToast('Error saving: ' + err.message);
     }
   };
 

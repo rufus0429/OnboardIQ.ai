@@ -35,14 +35,7 @@ async function generateOutcomeSummary(outcomesData) {
         config: reqConfig
       });
     } catch (error) {
-      console.warn('Gemini error, using mock OutcomeSummary:', error);
-      const mockSummary = {
-        headline: "Rate Limit Mock Summary",
-        whatWorked: ["Mock work"],
-        whatDidNot: ["Mock fail"],
-        nextActions: ["Wait for quota"]
-      };
-      response = { candidates: [{ content: { parts: [{ text: JSON.stringify(mockSummary) }] } }] };
+      throw Object.assign(new Error('AI summarization is temporarily unavailable.'), { code: 'AI_UNAVAILABLE', retryable: true });
     }
 
     const textPart = response.candidates[0].content.parts.find(p => p.text);

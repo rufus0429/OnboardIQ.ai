@@ -8,14 +8,6 @@ const requireAuth = async (req, res, next) => {
     }
 
     const token = authHeader.split('Bearer ')[1];
-    
-    // Test bypass for Phase 3 verification
-    if (process.env.NODE_ENV !== 'production' && token === 'test-token') {
-      req.uid = 'test-uid';
-      req.user = { uid: 'test-uid', email: 'test@example.com' };
-      return next();
-    }
-
     const decodedToken = await auth.verifyIdToken(token, true); // true = check revocation
     
     req.uid = decodedToken.uid;

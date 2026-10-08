@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import { WorkspaceProvider } from './contexts/WorkspaceContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 import AppLayout from './components/layout/AppLayout';
 import Login from './pages/Login';
@@ -15,9 +16,10 @@ import Settings from './pages/Settings';
 
 export default function App() {
   return (
-    <AuthProvider>
-      <WorkspaceProvider>
-        <Router>
+    <ToastProvider>
+      <AuthProvider>
+        <WorkspaceProvider>
+          <Router>
           <Routes>
             <Route path="/login" element={<Login />} />
             
@@ -36,5 +38,6 @@ export default function App() {
         </Router>
       </WorkspaceProvider>
     </AuthProvider>
+    </ToastProvider>
   );
 }

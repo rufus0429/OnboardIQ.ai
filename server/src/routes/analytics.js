@@ -24,7 +24,7 @@ router.use(async (req, res, next) => {
     req.workspace = ws; // Cache it for routes
     next();
   } catch (err) {
-    if (err.name === 'ZodError') return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: err.errors } });
+    if (err.name === 'ZodError') return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'Validation failed', issues: err.issues } });
     next(err);
   }
 });

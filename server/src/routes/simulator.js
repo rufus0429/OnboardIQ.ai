@@ -25,7 +25,7 @@ router.post('/seed', async (req, res, next) => {
     res.json({ ok: true, data: result });
   } catch (error) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: error.errors } });
+      return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'Validation failed', issues: error.issues } });
     }
     next(error);
   }
@@ -47,7 +47,7 @@ router.post('/advance', async (req, res, next) => {
     res.json({ ok: true, data: result });
   } catch (error) {
     if (error.name === 'ZodError') {
-      return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: error.errors } });
+      return res.status(400).json({ ok: false, error: { code: 'VALIDATION_ERROR', message: 'Validation failed', issues: error.issues } });
     }
     next(error);
   }

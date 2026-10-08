@@ -10,7 +10,7 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
 export async function fetchApi(endpoint, options = {}) {
   let token = null;
   if (auth.currentUser) {
-    token = await auth.currentUser.getIdToken(true);
+    token = await auth.currentUser.getIdToken();
   }
 
   const headers = {
@@ -22,10 +22,21 @@ export async function fetchApi(endpoint, options = {}) {
     headers['Authorization'] = `Bearer ${token}`;
   }
 
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+  let response = await fetch(`${API_BASE_URL}${endpoint}`, {
     ...options,
     headers,
   });
+
+  if (response.status === 401 && auth.currentUser && !options._retry) {
+    // Force token refresh
+    token = await auth.currentUser.getIdToken(true);
+    headers['Authorization'] = `Bearer ${token}`;
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      headers,
+      _retry: true
+    });
+  }
 
   let data;
   try {

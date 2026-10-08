@@ -5,6 +5,7 @@ const { generateOutcomeSummary } = require('../ai/outcomeSummary');
 const { getWorkspaceInterventions } = require('../repo/interventions');
 const { calculateMetrics } = require('../services/metrics');
 const { getWorkspaceUsers } = require('../repo/endUsers');
+const { saveOutcomeSummary, getLatestOutcomeSummary } = require('../repo/summaries');
 
 const router = express.Router({ mergeParams: true });
 router.use(requireAuth);
@@ -37,6 +38,7 @@ router.post('/summarize', async (req, res, next) => {
     };
 
     const summary = await generateOutcomeSummary(aiData);
+    await saveOutcomeSummary(req.params.workspaceId, req.uid, summary);
     res.json({ ok: true, data: summary });
   } catch (error) {
     next(error);
@@ -44,9 +46,13 @@ router.post('/summarize', async (req, res, next) => {
 });
 
 router.get('/latest-summary', async (req, res, next) => {
-  // If we persisted the AI summary, we'd fetch it here.
-  // For the hackathon, we can return empty or trigger the generation if not saved.
-  res.json({ ok: true, data: null });
+  try {
+    const summary = await getLatestOutcomeSummary(req.uid, req.params.workspaceId);
+    if (!summary) return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'No summary found' } });
+    res.json({ ok: true, data: summary });
+  } catch (error) {
+    next(error);
+  }
 });
 
 module.exports = router;

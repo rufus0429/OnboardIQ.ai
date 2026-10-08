@@ -3,6 +3,7 @@ const { requireAuth } = require('../middleware/requireAuth');
 const { runAgentAnalysis } = require('../ai/agent');
 const rateLimit = require('express-rate-limit');
 const { getWorkspace } = require('../repo/workspaces');
+const { saveDiagnosis, getLatestDiagnosis } = require('../repo/diagnoses');
 
 const router = express.Router({ mergeParams: true });
 
@@ -32,6 +33,14 @@ router.post('/', async (req, res, next) => {
 
     const result = await runAgentAnalysis(ctx);
     
+    // Persist diagnosis
+    if (result.diagnosis) {
+      await saveDiagnosis(req.params.workspaceId, req.uid, {
+        ...result.diagnosis,
+        agentTrace: result.agentTrace
+      });
+    }
+    
     res.json({
       ok: true,
       data: {
@@ -41,6 +50,18 @@ router.post('/', async (req, res, next) => {
       }
     });
 
+  } catch (error) {
+    next(error);
+  }
+});
+
+router.get('/diagnosis/latest', async (req, res, next) => {
+  try {
+    const diagnosis = await getLatestDiagnosis(req.uid, req.params.workspaceId);
+    if (!diagnosis) {
+      return res.status(404).json({ ok: false, error: { code: 'NOT_FOUND', message: 'No diagnosis found' } });
+    }
+    res.json({ ok: true, data: diagnosis });
   } catch (error) {
     next(error);
   }

@@ -10,6 +10,9 @@ if (process.env.FIREBASE_SERVICE_ACCOUNT_BASE64) {
     credential: cert(serviceAccount)
   });
 } else {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('Production environment missing FIREBASE_SERVICE_ACCOUNT_BASE64');
+  }
   // Mock initialization for testing when no env is provided
   app = initializeApp({ projectId: process.env.FIREBASE_PROJECT_ID || 'demo-onboardiq' });
 }

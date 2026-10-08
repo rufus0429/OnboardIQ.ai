@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { api } from '../lib/api';
 import { useWorkspace } from '../contexts/WorkspaceContext';
+import { useToast } from '../contexts/ToastContext';
 import { BarChart3, TrendingUp, DollarSign, Brain } from 'lucide-react';
 import { LoadingState } from '../components/ui/Loader';
 
 export default function Results() {
   const { workspaceId } = useWorkspace();
+  const { addToast } = useToast();
   const [data, setData] = useState(null);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -35,8 +37,9 @@ export default function Results() {
     try {
       const res = await api.post(`/workspaces/${workspaceId}/outcomes/summarize`, {});
       setSummary(res);
+      addToast('Summary generated successfully', 'success');
     } catch (err) {
-      alert('Error generating summary: ' + err.message);
+      addToast('Error generating summary: ' + err.message);
     } finally {
       setSummarizing(false);
     }
@@ -48,8 +51,11 @@ export default function Results() {
 
   const totalNudges = data.nudgesSent || 0;
   const recoveredUsers = data.recoveredUsers || 0;
-  const recoveryRate = data.recoveryRate || 0;
   const estRevenue = data.estimatedRevenueRecovered || 0;
+  const control = data.controlGroup || {
+    nudged: { recovered: 0, total: 0, rate: 0 },
+    unnudged: { recovered: 0, total: 0, rate: 0 }
+  };
 
   return (
     <div className="space-y-6">
@@ -71,8 +77,8 @@ export default function Results() {
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-4">
         {[
           { name: 'Nudges Sent', value: totalNudges, icon: BarChart3 },
-          { name: 'Recovered Users', value: recoveredUsers, icon: TrendingUp },
-          { name: 'Recovery Rate', value: `${recoveryRate}%`, icon: TrendingUp },
+          { name: 'Recovered Users', value: control.nudged.recovered, icon: TrendingUp },
+          { name: 'Recovery Rate', value: `${control.nudged.rate}%`, icon: TrendingUp },
           { name: 'Est. Revenue', value: `$${estRevenue.toLocaleString()}`, icon: DollarSign },
         ].map((stat) => (
           <div key={stat.name} className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -85,6 +91,28 @@ export default function Results() {
             </div>
           </div>
         ))}
+      </div>
+
+      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+        <h3 className="text-sm font-semibold text-slate-900 uppercase tracking-wider mb-4 flex items-center">
+          <Brain className="mr-2 h-4 w-4 text-indigo-600" /> SIMULATED EXPERIMENTAL OUTCOME
+        </h3>
+        <div className="grid grid-cols-2 gap-8">
+          <div className="bg-indigo-50 p-5 rounded-lg border border-indigo-100">
+            <p className="text-sm text-indigo-800 font-semibold mb-2">Nudged</p>
+            <p className="text-3xl font-bold text-indigo-900 tabular-nums">
+              {control.nudged.recovered} / {control.nudged.total} <span className="text-lg font-medium text-indigo-700 ml-2">recovered</span>
+            </p>
+            <p className="text-sm text-indigo-700 mt-2 font-medium">{control.nudged.rate}% recovery rate</p>
+          </div>
+          <div className="bg-slate-50 p-5 rounded-lg border border-slate-200">
+            <p className="text-sm text-slate-600 font-semibold mb-2">Un-nudged (Control)</p>
+            <p className="text-3xl font-bold text-slate-900 tabular-nums">
+              {control.unnudged.recovered} / {control.unnudged.total} <span className="text-lg font-medium text-slate-500 ml-2">recovered</span>
+            </p>
+            <p className="text-sm text-slate-500 mt-2 font-medium">{control.unnudged.rate}% baseline recovery rate</p>
+          </div>
+        </div>
       </div>
 
       {summarizing && <LoadingState message="Analyzing recovery outcomes..." />}

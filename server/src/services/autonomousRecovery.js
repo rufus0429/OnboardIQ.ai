@@ -8,7 +8,7 @@ const { getWorkspace } = require('../repo/workspaces');
 async function runAutonomousRecovery(ownerUid, workspaceId, simNowMs) {
   const ws = await getWorkspace(ownerUid, workspaceId);
   const stallThresholdHours = ws?.settings?.stallThresholdHours || 48;
-  const maxNudges = ws?.settings?.maxNudgesPerRun || 1;
+  const maxNudges = ws?.settings?.maxNudgesPerRun || 25;
   const stallMs = stallThresholdHours * 3600000;
 
   // 1. Detect stuck users
@@ -43,37 +43,28 @@ async function runAutonomousRecovery(ownerUid, workspaceId, simNowMs) {
     existingMap[data.endUserId].push(data);
   });
 
-  // 3. Process each stuck user
-  const usersToProcess = stuckUsers;
+    // 3. Process each stuck user
+  const usersToProcess = stuckUsers.filter(user => {
+    const userInterventions = existingMap[user.id] || [];
+    // Prevent duplicate intervention for the same step
+    return !userInterventions.some(inv => inv.stalledStep === user.currentStep);
+  }).slice(0, maxNudges);
+
   let realTestSent = false;
   
-  for (const user of usersToProcess) {
+  // Concurrency helper
+  async function processUser(user) {
     stats.investigated++;
-    
-    // Check limits & duplicates
-    const userInterventions = existingMap[user.id] || [];
-    
-    // Prevent exceeding max nudges overall
-    if (userInterventions.length >= maxNudges) {
-      stats.skipped++;
-      continue;
-    }
-    
-    // Prevent duplicate intervention for the same step
-    const alreadyNudgedForStep = userInterventions.some(inv => inv.stalledStep === user.currentStep);
-    if (alreadyNudgedForStep) {
-      stats.skipped++;
-      continue;
-    }
-
     stats.eligible++;
+    
+    // (Duplicates checked in filter)
 
     // 4. Diagnose & Generate (Agentic loop)
     try {
       const draft = await generateIntervention(ownerUid, workspaceId, user.id, user.currentStep);
       if (!draft) {
         stats.failed++;
-        continue;
+        return;
       }
       stats.generated++;
 
@@ -87,7 +78,7 @@ async function runAutonomousRecovery(ownerUid, workspaceId, simNowMs) {
           failReason: 'user_progressed_before_send'
         });
         stats.skipped++;
-        continue;
+        return;
       }
 
       // 6. Validate
@@ -97,7 +88,7 @@ async function runAutonomousRecovery(ownerUid, workspaceId, simNowMs) {
           failReason: 'validation_failed'
         });
         stats.failed++;
-        continue;
+        return;
       }
 
       // Mark validated
@@ -141,6 +132,13 @@ async function runAutonomousRecovery(ownerUid, workspaceId, simNowMs) {
       console.error(`Error processing user ${user.id}:`, err);
       stats.failed++;
     }
+  }
+
+  // Execute with concurrency of 3
+  const concurrency = 3;
+  for (let i = 0; i < usersToProcess.length; i += concurrency) {
+    const chunk = usersToProcess.slice(i, i + concurrency);
+    await Promise.all(chunk.map(user => processUser(user)));
   }
 
   return stats;

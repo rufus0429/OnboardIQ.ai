@@ -22,4 +22,17 @@ if (!envParseResult.success) {
   process.exit(1);
 }
 
-module.exports = { env: envParseResult.data };
+const env = envParseResult.data;
+
+if (env.NODE_ENV === 'production') {
+  const required = ['FIREBASE_PROJECT_ID', 'FIREBASE_SERVICE_ACCOUNT_BASE64', 'GEMINI_API_KEY', 'GEMINI_MODEL', 'CORS_ORIGINS'];
+  if (env.SEND_MODE === 'resend') required.push('RESEND_API_KEY');
+  
+  const missing = required.filter(k => !env[k]);
+  if (missing.length > 0) {
+    console.error('Production environment missing required variables:', missing);
+    process.exit(1);
+  }
+}
+
+module.exports = { env };
